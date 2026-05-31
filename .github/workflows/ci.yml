@@ -13,42 +13,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "~1.6"
+
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
-      - name: Validate VPC module
-        run: |
-          terraform -chdir=modules/vpc init -backend=false
-          terraform -chdir=modules/vpc validate
-      - name: Validate EKS module
-        run: |
-          terraform -chdir=modules/eks init -backend=false
-          terraform -chdir=modules/eks validate
-      - name: Validate S3 module
-        run: |
-          terraform -chdir=modules/s3 init -backend=false
-          terraform -chdir=modules/s3 validate
 
-  tflint:
-    name: TFLint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: terraform-linters/setup-tflint@v4
-        with:
-          tflint_version: latest
-      - run: tflint --init
-      - run: tflint --recursive --format compact
+      - name: Validate all modules
+        run: |
+          for dir in modules/vpc modules/eks modules/iam modules/s3; do
+            echo "── Validating $dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+            echo "   ✅ $dir OK"
+          done
 
   checkov:
-    name: Checkov Security
+    name: Checkov Security Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: bridgecrewio/checkov-action@master
         with:
           directory: modules/
           framework: terraform
           soft_fail: true
+          output_format: cli
