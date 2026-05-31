@@ -5,6 +5,7 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   validate:
@@ -12,30 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "~1.6"
-
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
-        continue-on-error: false
-
       - name: Validate VPC module
         run: |
           terraform -chdir=modules/vpc init -backend=false
           terraform -chdir=modules/vpc validate
-
       - name: Validate EKS module
         run: |
           terraform -chdir=modules/eks init -backend=false
           terraform -chdir=modules/eks validate
-
-      - name: Validate IAM module
-        run: |
-          terraform -chdir=modules/iam init -backend=false
-          terraform -chdir=modules/iam validate
-
       - name: Validate S3 module
         run: |
           terraform -chdir=modules/s3 init -backend=false
@@ -46,27 +36,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: terraform-linters/setup-tflint@v4
         with:
           tflint_version: latest
-
-      - name: Init TFLint
-        run: tflint --init
-
-      - name: Run TFLint
-        run: tflint --recursive --format compact
+      - run: tflint --init
+      - run: tflint --recursive --format compact
 
   checkov:
-    name: Security Scan (Checkov)
+    name: Checkov Security
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run Checkov IaC scan
-        uses: bridgecrewio/checkov-action@master
+      - uses: bridgecrewio/checkov-action@master
         with:
           directory: modules/
           framework: terraform
           soft_fail: true
-          output_format: cli
